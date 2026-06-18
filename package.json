@@ -1,0 +1,24 @@
+{
+  "name": "condition_ptractices",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amna6709/lat-long-distance.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Amna6709/lat-long-distance/issues"
+  },
+  "homepage": "https://github.com/Amna6709/lat-long-distance#readme",
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}
