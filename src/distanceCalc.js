@@ -1,4 +1,7 @@
 const fs = require('fs');
+const crypto = require('crypto');
+const readline = require('readline');
+
 function getDistanceInKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -51,46 +54,67 @@ function parseAndValidateInput(input) {
     }
     const lat = parts[0].trim();
     const lon = parts[1].trim();
-
     if (!validateLatitude(lat) || !validateLongitude(lon)) { return null; }
     return { lat: parseFloat(lat), lon: parseFloat(lon) };
 }
 
-function askPoint1(rl, onComplete) { 
-    rl.question('Enter Point 1 (Lat, Lon): ', (point1Input) => {
-        const point1 = parseAndValidateInput(point1Input);
-        
+function makeNewRl() {
+    return readline.createInterface({ input: process.stdin, output: process.stdout });
+}
+
+function askPoint1(rl, username, onComplete) {
+    rl.removeAllListeners('SIGINT');
+
+    rl.on('SIGINT', () => {
+        console.log("\n\n[Ctrl+C] Returning to main menu...\n");
+        rl.close();                          
+        const freshRl = makeNewRl();        
+        onComplete(freshRl);                 
+    });
+
+    rl.question('Enter Point 1 (Lat, Lon): ', (input) => {
+        rl.removeAllListeners('SIGINT');
+        const point1 = parseAndValidateInput(input);
         if (!point1) {
             console.log("Try again for Point 1...\n");
-            askPoint1(rl, onComplete); 
+            askPoint1(rl, username, onComplete);
         } else {
-            askPoint2(rl, point1, onComplete); 
+            askPoint2(rl, point1, username, onComplete);
         }
     });
 }
 
-function askPoint2(rl, point1, onComplete) { 
-    rl.question('Enter Point 2 (Lat, Lon): ', (point2Input) => {
-        const point2 = parseAndValidateInput(point2Input);
-        
+function askPoint2(rl, point1, username, onComplete) {
+    rl.removeAllListeners('SIGINT');
+
+    rl.on('SIGINT', () => {
+        console.log("\n\n[Ctrl+C] Returning to main menu...\n");
+        rl.close();
+        const freshRl = makeNewRl();
+        onComplete(freshRl);
+    });
+
+    rl.question('Enter Point 2 (Lat, Lon): ', (input) => {
+        rl.removeAllListeners('SIGINT');
+        const point2 = parseAndValidateInput(input);
         if (!point2) {
             console.log("Try again for Point 2...\n");
-            askPoint2(rl, point1, onComplete); 
+            askPoint2(rl, point1, username, onComplete);
         } else {
-            calculateFinalDistance(rl, point1, point2, onComplete); 
+            calculateFinalDistance(rl, point1, point2, username, onComplete);
         }
     });
 }
 
-function calculateFinalDistance(rl, point1, point2, onComplete) {
+function calculateFinalDistance(rl, point1, point2, username, onComplete) {
     const distance = getDistanceInKm(point1.lat, point1.lon, point2.lat, point2.lon);
 
     console.log('\n-----------------------------------------');
     console.log('Distance: ' + distance + " " + 'km');
 
-    const confirmedMax = parseFloat(process.env.CONFIRMED_MAX) || 15;
-    const possibleMin = parseFloat(process.env.POSSIBLE_MIN) || 15;
-    const possibleMax = parseFloat(process.env.POSSIBLE_MAX) || 50;
+    const confirmedMax       = parseFloat(process.env.CONFIRMED_MAX)       || 15;
+    const possibleMin        = parseFloat(process.env.POSSIBLE_MIN)        || 15;
+    const possibleMax        = parseFloat(process.env.POSSIBLE_MAX)        || 50;
     const invalidGreaterThan = parseFloat(process.env.INVALID_GREATER_THAN) || 50;
 
     let status = 'Unknown';
@@ -106,36 +130,31 @@ function calculateFinalDistance(rl, point1, point2, onComplete) {
     console.log('-----------------------------------------\n');
 
     const filename = process.env.RESULTS_FILE || 'results.json';
-    
     const newRecord = {
-        point1: point1,
-        point2: point2,
+        id: crypto.randomUUID(),
+        username,
+        point1,
+        point2,
         distance: parseFloat(distance),
-        status: status,
-        timestamp: new Date().toLocaleString()
+        status,
+        timestamp: new Date().toISOString()
     };
 
     let fileData = [];
-
     try {
         if (fs.existsSync(filename)) {
-            const rawData = fs.readFileSync(filename, 'utf8');
-            fileData = JSON.parse(rawData);
+            fileData = JSON.parse(fs.readFileSync(filename, 'utf8'));
         }
-        
         fileData.push(newRecord);
-        
         fs.writeFileSync(filename, JSON.stringify(fileData, null, 2), 'utf8');
         console.log(`Result successfully saved to ${filename}\n`);
-
     } catch (error) {
         console.log("Error saving to file:", error.message);
     }
+
     if (typeof onComplete === 'function') {
-        onComplete();
+        onComplete(rl);  
     }
 }
-module.exports = {
-    askPoint1,
-    getDistanceInKm
-};
+
+module.exports = { askPoint1, getDistanceInKm };
